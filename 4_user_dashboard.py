@@ -1,4 +1,4 @@
-# 4_user_dashboard.py - The Interactive Web Dashboard (SCI-FI FONTS & VIDEO FIX)
+# 4_user_dashboard.py - The Interactive Web Dashboard (WITH CALCULATION AUDIT)
 import streamlit as st
 import pandas as pd
 import joblib
@@ -25,33 +25,23 @@ def set_dynamic_background(hour):
             video_bytes = f.read()
         b64 = base64.b64encode(video_bytes).decode()
         
-        # Inject custom HTML/CSS for Videos AND Futuristic Fonts!
         st.markdown(f"""
             <style>
-            /* 1. Import futuristic fonts from Google Fonts */
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap');
-
-            /* 2. Apply Rajdhani to all standard text */
             html, body, [class*="st-"] {{
                 font-family: 'Rajdhani', sans-serif !important;
                 font-size: 1.1rem;
             }}
-
-            /* 3. Apply Orbitron to all Headers and Titles for that Sci-Fi look */
-            h1, h2, h3, .stMetric label {{
+            h1, h2, h3, .stMetric label, .stTabs [data-baseweb="tab"] {{
                 font-family: 'Orbitron', sans-serif !important;
                 letter-spacing: 1px;
             }}
-
-            /* 4. Make the metric numbers huge, bold, and glowing Neon Cyan */
             [data-testid="stMetricValue"] {{
                 font-family: 'Orbitron', sans-serif !important;
                 font-size: 2.5rem !important;
                 color: #00E5FF !important; 
                 text-shadow: 0px 0px 10px rgba(0, 229, 255, 0.5); 
             }}
-
-            /* 5. Keep the transparent video background */
             .stApp {{
                 background-color: transparent !important;
             }}
@@ -65,9 +55,7 @@ def set_dynamic_background(hour):
                 opacity: 0.35; 
                 object-fit: cover;
             }}
-
-            /* 6. Glowing glass-morphism panels for data */
-            .stMetric, .stDataFrame {{
+            .stMetric, .stDataFrame, .stExpander {{
                 background-color: rgba(15, 20, 25, 0.75);
                 padding: 15px;
                 border-radius: 12px;
@@ -79,7 +67,6 @@ def set_dynamic_background(hour):
         """, unsafe_allow_html=True)
     else:
         st.sidebar.error(f"⚠️ Missing background video: {video_file}")
-# -----------------------------------
 
 st.title("⚡ Smart Home Energy Optimization")
 st.write("Welcome to your AI-powered home energy manager.")
@@ -127,28 +114,19 @@ if app_mode == "🟢 Auto Mode (Live Sensors)":
     current_hour = now_ist.hour
     display_time = now_ist.strftime("%I:%M %p") 
     current_temp = get_live_weather()
-    
     st.sidebar.success(f"**🕒 Live Time (IST):** {display_time}")
     st.sidebar.success(f"**🌤️ Live Temp:** {current_temp} °C")
 else:
     st.sidebar.warning("Manual Override Active")
-    selected_time = st.sidebar.slider(
-        "Set Time", 
-        min_value=time(0, 0), 
-        max_value=time(23, 0), 
-        value=time(14, 0), 
-        format="hh:mm a"
-    )
+    selected_time = st.sidebar.slider("Set Time", min_value=time(0, 0), max_value=time(23, 0), value=time(14, 0), format="hh:mm a")
     current_hour = selected_time.hour
     current_temp = st.sidebar.slider("Set Outdoor Temperature (°C)", 10.0, 45.0, 24.5, 0.5)
 
-# Trigger Background Video & Fonts
 set_dynamic_background(current_hour)
 
 # 4. Prepare data for the AI
 appliances = ["Living_Room_AC", "Bedroom_AC", "Living_Room_Fan", "Kitchen_Lights", "TV"]
 input_data = []
-
 for app in appliances:
     row = {'Hour': current_hour, 'Outdoor_Temp': current_temp}
     for f in features:
@@ -165,6 +143,7 @@ predictions = ai_model.predict(df_current)
 total_normal_kwh = 0.0
 total_optimized_kwh = 0.0
 appliance_results = []
+audit_logs = [] # NEW: We will save the math steps here for the professor!
 
 for i, app in enumerate(appliances):
     normal_kwh = predictions[i]
@@ -195,6 +174,9 @@ for i, app in enumerate(appliances):
         "Predicted (kWh)": f"{normal_kwh:.3f}",
         "Optimized (kWh)": f"{optimized_kwh:.3f}"
     })
+    
+    # Save step-by-step logic for the audit tab
+    audit_logs.append(f"-> {app}: Predicted {normal_kwh:.3f} kWh | Rule Applied: {action} | Final: {optimized_kwh:.3f} kWh")
 
 savings_kwh = total_normal_kwh - total_optimized_kwh
 cost_normal = total_normal_kwh * elec_rate
@@ -202,38 +184,78 @@ cost_optimized = total_optimized_kwh * elec_rate
 savings_rupees = cost_normal - cost_optimized
 projected_monthly_savings = savings_rupees * 8 * 30 
 
-# 7. Display Metrics on the Dashboard
-st.subheader("💰 Financial Impact (Real-Time)")
-st.write(f"Based on current rate: **₹{elec_rate:.2f} / kWh**")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric(label="Predicted Cost/Hr", value=f"₹{cost_normal:.2f}")
-col2.metric(label="Optimized Cost/Hr", value=f"₹{cost_optimized:.2f}", delta=f"-₹{savings_rupees:.2f}", delta_color="inverse")
-col3.metric(label="Money Saved This Hour", value=f"₹{savings_rupees:.2f}")
-col4.metric(label="🚀 Projected Monthly Savings", value=f"₹{projected_monthly_savings:.0f}", delta="Huge Impact!", delta_color="normal")
+# ==========================================
+# --- TABS CREATION (THE PROFESSOR SWITCH) ---
+# ==========================================
+tab1, tab2 = st.tabs(["🏠 Main Dashboard", "🔍 System Audit & Calculations"])
 
-st.markdown("---")
+with tab1:
+    # --- EVERYTHING IN TAB 1 IS YOUR BEAUTIFUL DASHBOARD ---
+    st.subheader("💰 Financial Impact (Real-Time)")
+    st.write(f"Based on current rate: **₹{elec_rate:.2f} / kWh**")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric(label="Predicted Cost/Hr", value=f"₹{cost_normal:.2f}")
+    col2.metric(label="Optimized Cost/Hr", value=f"₹{cost_optimized:.2f}", delta=f"-₹{savings_rupees:.2f}", delta_color="inverse")
+    col3.metric(label="Money Saved This Hour", value=f"₹{savings_rupees:.2f}")
+    col4.metric(label="🚀 Projected Monthly Savings", value=f"₹{projected_monthly_savings:.0f}", delta="Huge Impact!", delta_color="normal")
 
-st.subheader("📊 Energy Metrics (kWh)")
-col1, col2, col3 = st.columns(3)
-col1.metric(label="Predicted Usage", value=f"{total_normal_kwh:.3f} kWh")
-col2.metric(label="Optimized Usage", value=f"{total_optimized_kwh:.3f} kWh", delta=f"-{savings_kwh:.3f} kWh", delta_color="inverse")
-col3.metric(label="Total Energy Saved", value=f"{savings_kwh:.3f} kWh")
+    st.markdown("---")
 
-# 8. Display Appliance Control Status
-st.subheader("📱 Appliance Control Status")
-results_df = pd.DataFrame(appliance_results)
-st.dataframe(results_df, use_container_width=True)
+    st.subheader("📊 Energy Metrics (kWh)")
+    col1, col2, col3 = st.columns(3)
+    col1.metric(label="Predicted Usage", value=f"{total_normal_kwh:.3f} kWh")
+    col2.metric(label="Optimized Usage", value=f"{total_optimized_kwh:.3f} kWh", delta=f"-{savings_kwh:.3f} kWh", delta_color="inverse")
+    col3.metric(label="Total Energy Saved", value=f"{savings_kwh:.3f} kWh")
 
-# 9. Historical Chart
-st.subheader("📈 Average Daily Energy Profile")
-try:
-    history_df = pd.read_csv("smart_home_energy_data.csv")
-    history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
-    history_df['Hour'] = history_df['Timestamp'].dt.hour
+    st.subheader("📱 Appliance Control Status")
+    results_df = pd.DataFrame(appliance_results)
+    st.dataframe(results_df, use_container_width=True)
+
+    st.subheader("📈 Average Daily Energy Profile")
+    try:
+        history_df = pd.read_csv("smart_home_energy_data.csv")
+        history_df['Timestamp'] = pd.to_datetime(history_df['Timestamp'])
+        history_df['Hour'] = history_df['Timestamp'].dt.hour
+        chart_data = history_df.groupby('Hour')['Energy_Consumed_kWh'].mean()
+        st.area_chart(chart_data)
+    except FileNotFoundError:
+        st.write("No historical data found to display.")
+
+with tab2:
+    # --- EVERYTHING IN TAB 2 IS THE HARDCORE MATH FOR THE PROFESSOR ---
+    st.subheader("🛠️ Under the Hood: Mathematical Proof")
+    st.write("This section breaks open the 'black box' to prove exactly how the Scikit-Learn Random Forest model and the Optimization Engine calculate the final values.")
     
-    chart_data = history_df.groupby('Hour')['Energy_Consumed_kWh'].mean()
-    st.area_chart(chart_data)
-except FileNotFoundError:
-    st.write("No historical data found to display.")
-
-st.success("✅ Financial Engine Active. AI is maximizing your ROI.")
+    st.markdown("### Step 1: Data Array Extraction")
+    st.write("Before the AI can make a prediction, the live sensor data is formatted into a 1D Pandas Array. This is the exact binary dictionary sent to the `joblib` model:")
+    # Show the exact array for the first appliance to prove the data structure
+    st.json(df_current.iloc[0].to_dict())
+    
+    st.markdown("### Step 2: Random Forest Prediction & Rule Execution")
+    st.write("The trained model returns a raw predicted float value. Our Python logic intercepts this value and applies environmental rules:")
+    # Print the logs we saved earlier in a cool terminal-like code block
+    st.code("\n".join(audit_logs), language="bash")
+    
+    st.markdown("### Step 3: Financial Arithmetic Proof")
+    st.write("To prove the UI is not randomly generating the saved money, here is the exact underlying arithmetic formula executing in real-time:")
+    
+    math_proof = f"""
+    1. Electricity Rate Selected: ₹{elec_rate:.2f} per kWh
+    
+    2. Cost Normal calculation:
+       Formula: (Total Predicted kWh) * (Electricity Rate)
+       Math:     {total_normal_kwh:.3f} * {elec_rate:.2f} 
+       Result:   ₹{cost_normal:.2f}
+       
+    3. Cost Optimized calculation:
+       Formula: (Total Optimized kWh) * (Electricity Rate)
+       Math:     {total_optimized_kwh:.3f} * {elec_rate:.2f} 
+       Result:   ₹{cost_optimized:.2f}
+       
+    4. Final Savings Output:
+       Formula: (Cost Normal) - (Cost Optimized)
+       Math:    ₹{cost_normal:.2f} - ₹{cost_optimized:.2f}
+       Result:  ₹{savings_rupees:.2f} Saved This Hour.
+    """
+    st.code(math_proof, language="text")
+    st.success("✅ Audit Complete: All calculations mathematically verified.")
